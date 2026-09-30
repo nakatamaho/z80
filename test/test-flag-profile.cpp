@@ -28,7 +28,22 @@ static const Probe probes[] = {
     {"SBC HL,BC", 0x0000, 0x0001, 0x0010, {0xED, 0x42}, 2, 0x00, 0x02, 0x12},     // R7
     {"POP AF ($FFFF)", 0x0000, 0xFFFF, 0x0000, {0xC5, 0xF1}, 2, 0xFF, 0xFF, 0xD7}, // R1
     {"EX AF,AF' x2", 0x0000, 0xFFFF, 0x0000, {0xC5, 0xF1, 0x08, 0x08}, 4, 0xFF, 0xFF, 0xD7}, // R1
+    {"CPL", 0x0000, 0x0000, 0x0000, {0x2F}, 1, 0xFF, 0x3A, 0x00},                  // R8
+    {"CPL (F=$D7)", 0x00D7, 0x0000, 0x0000, {0x2F}, 1, 0xFF, 0xFF, 0xD7},          // R8
+    {"SCF (H,N set)", 0x0012, 0x0000, 0x0000, {0x37}, 1, 0x00, 0x01, 0x13},        // R9
+    {"CCF (C set)", 0x0013, 0x0000, 0x0000, {0x3F}, 1, 0x00, 0x10, 0x12},          // R10
+    {"CCF (C clear)", 0x0012, 0x0000, 0x0000, {0x3F}, 1, 0x00, 0x01, 0x13},        // R10
+    {"DAA A=$00", 0x0000, 0x0000, 0x0000, {0x27}, 1, 0x00, 0x44, 0x40},            // R11
+    {"DAA A=$7A", 0x7A00, 0x0000, 0x0000, {0x27}, 1, 0x80, 0x90, 0x94},            // R11
 };
+// DAA cases whose A result also differs between the profiles (R11: with H=1
+// the high step needs A > $9F instead of A > $99).
+static const Probe daaHighProbes[] = {
+    {"DAA A=$9A H", 0x9A10, 0x0000, 0x0000, {0x27}, 1, 0x00, 0x55, 0x00},
+    {"DAA A=$9A H N", 0x9A12, 0x0000, 0x0000, {0x27}, 1, 0x00, 0x23, 0x00},
+};
+static const unsigned char daaHighA[][2] = {{0x00, 0xA0}, {0x34, 0x94}};
+static const unsigned char daaHighFUpd9002[] = {0x90, 0x92};
 
 int main()
 {
@@ -69,6 +84,29 @@ int main()
             bool ok = z80.reg.pair.A == probe.a && z80.reg.pair.E == expectedF;
             printf("%s: %-8s %-20s A=$%02X F=$%02X (expected A=$%02X F=$%02X)\n", ok ? "OK" : "NG",
                    profile ? "Upd9002" : "Zilog", probe.name, z80.reg.pair.A, z80.reg.pair.E, probe.a, expectedF);
+            if (!ok) failures++;
+        }
+    }
+    for (int profile = 0; profile < 2; profile++) {
+        for (int i = 0; i < 2; i++) {
+            const Probe& probe = daaHighProbes[i];
+            memset(memory, 0, sizeof(memory));
+            const unsigned char code[] = {0x01, (unsigned char)probe.af, (unsigned char)(probe.af >> 8), // LD BC,af
+                                          0xC5, 0xF1, 0x27, 0xF5, 0xD1};                               // PUSH BC, POP AF, DAA, PUSH AF, POP DE
+            memcpy(memory, code, sizeof(code));
+            Z80 z80([&memory](void* arg, unsigned short addr) { return memory[addr]; },
+                    [&memory](void* arg, unsigned short addr, unsigned char value) { memory[addr] = value; },
+                    [](void* arg, unsigned short port) { return (unsigned char)0xFF; },
+                    [](void* arg, unsigned short port, unsigned char value) {},
+                    &z80);
+            z80.setFlagProfile(profile ? Z80::FlagProfile::Upd9002 : Z80::FlagProfile::Zilog);
+            z80.reg.SP = 0xF000;
+            while (z80.reg.PC != sizeof(code)) z80.execute(1);
+            unsigned char expectedA = daaHighA[i][profile];
+            unsigned char expectedF = profile ? daaHighFUpd9002[i] : probe.fZilog;
+            bool ok = z80.reg.pair.A == expectedA && z80.reg.pair.E == expectedF;
+            printf("%s: %-8s %-20s A=$%02X F=$%02X (expected A=$%02X F=$%02X)\n", ok ? "OK" : "NG",
+                   profile ? "Upd9002" : "Zilog", probe.name, z80.reg.pair.A, z80.reg.pair.E, expectedA, expectedF);
             if (!ok) failures++;
         }
     }
