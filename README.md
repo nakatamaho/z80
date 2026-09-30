@@ -381,7 +381,7 @@ ReturnHandler will be called back immediately **before** a branch by a RET instr
 By default the flags follow the Zilog Z80, including the undocumented bits 5 and 3 (`Z80::FlagProfile::Zilog`).
 
 The NEC uPD9002 used in the PC-88VA has a Z80 emulation mode whose flags differ.
-`Z80::FlagProfile::Upd9002` reproduces the behaviour measured on a real PC-88VA2 (ZEXDOC/ZEXALL, direct flag probes, and exhaustive DAA/CPL/SCF/CCF dumps):
+`Z80::FlagProfile::Upd9002` reproduces the behaviour measured on a real PC-88VA2 (ZEXDOC/ZEXALL, direct flag probes, exhaustive DAA/CPL/SCF/CCF dumps, and DD/FD CB probes):
 
 | Rule | Instructions | uPD9002 behaviour |
 |:-|:-|:-|
@@ -396,6 +396,8 @@ The NEC uPD9002 used in the PC-88VA has a Z80 emulation mode whose flags differ.
 | R9 | `SCF` | only C is set (H and N are not changed) |
 | R10 | `CCF` | only C is complemented (H and N are not changed) |
 | R11 | `DAA` | see below |
+| R12 | `BIT n,(IX+d),r` / `(IY+d)` (DD/FD CB d 40–7F, low bits ≠ 6) | tests register r instead of memory |
+| R13 | `RES`/`SET n,(IX+d),r` / `(IY+d)` (DD/FD CB d 80–FF, low bits ≠ 6) | modifies register r only; memory is not written |
 
 R11 (`DAA`): the low step (±$06) runs when H=1 or the low nibble of A is above 9; the high step (±$60) runs when C=1 or A is above $99 (H=0) or above $9F (H=1), both tested on the original A; N selects add or subtract.
 S and Z come from the result, H is set when the low step ran, P/V is the signed overflow of A ± the adjustment (not parity), C is set when the high step ran, and N is not changed.

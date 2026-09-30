@@ -110,5 +110,43 @@ int main()
             if (!ok) failures++;
         }
     }
+    // R12/R13: DD CB d xx with a register operand (low three bits != 6)
+    const struct {
+        const char* name;
+        unsigned char op;
+        unsigned char zilogB, zilogMem, upd9002B, upd9002Mem;
+        unsigned char zilogF, upd9002F;
+    } cbCases[] = {
+        {"RES 0,(IX+2),B", 0x80, 0x80, 0x80, 0x0A, 0x81, 0x00, 0x00}, // B=0B, (IX+2)=81
+        {"SET 7,(IX+2),B", 0xF8, 0x81, 0x81, 0x8B, 0x81, 0x00, 0x00},
+        {"BIT 0,(IX+2) [B]", 0x40, 0x0B, 0x81, 0x0B, 0x81, 0x10, 0x00}, // Zilog tests (IX+2), uPD9002 tests B
+        {"BIT 2,(IX+2) [B]", 0x50, 0x0B, 0x81, 0x0B, 0x81, 0x54, 0x44},
+    };
+    for (int profile = 0; profile < 2; profile++) {
+        for (const auto& c : cbCases) {
+            memset(memory, 0, sizeof(memory));
+            const unsigned char code[] = {0x06, 0x0B, 0xDD, 0xCB, 0x02, c.op, 0xF5, 0xD1}; // LD B,0B; op; PUSH AF; POP DE
+            memcpy(memory, code, sizeof(code));
+            memory[0x5002] = 0x81;
+            Z80 z80([&memory](void* arg, unsigned short addr) { return memory[addr]; },
+                    [&memory](void* arg, unsigned short addr, unsigned char value) { memory[addr] = value; },
+                    [](void* arg, unsigned short port) { return (unsigned char)0xFF; },
+                    [](void* arg, unsigned short port, unsigned char value) {},
+                    &z80);
+            z80.setFlagProfile(profile ? Z80::FlagProfile::Upd9002 : Z80::FlagProfile::Zilog);
+            z80.reg.SP = 0xF000;
+            z80.reg.IX = 0x5000;
+            z80.reg.pair.A = 0x00;
+            z80.reg.pair.F = 0x00;
+            while (z80.reg.PC != sizeof(code)) z80.execute(1);
+            unsigned char b = profile ? c.upd9002B : c.zilogB;
+            unsigned char m = profile ? c.upd9002Mem : c.zilogMem;
+            unsigned char f = profile ? c.upd9002F : c.zilogF;
+            bool ok = z80.reg.pair.B == b && memory[0x5002] == m && z80.reg.pair.E == f;
+            printf("%s: %-8s %-20s B=$%02X (IX+2)=$%02X F=$%02X (expected B=$%02X (IX+2)=$%02X F=$%02X)\n", ok ? "OK" : "NG",
+                   profile ? "Upd9002" : "Zilog", c.name, z80.reg.pair.B, memory[0x5002], z80.reg.pair.E, b, m, f);
+            if (!ok) failures++;
+        }
+    }
     return failures ? -1 : 0;
 }
