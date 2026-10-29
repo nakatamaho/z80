@@ -28,6 +28,7 @@ all:
 	make test-adc-sbc-16
 	make test-add-hl-wz
 	make test-flag-profile
+	make test-upd780c1-profile
 
 test-execute:
 	clang $(CFLAGS) test-execute.cpp -lstdc++
@@ -91,6 +92,15 @@ test-flag-profile:
 
 test-add-hl-wz:
 	clang $(CFLAGS) test-add-hl-wz.cpp -lstdc++
+	./a.out
+
+.PHONY: test-upd780c1-profile
+test-upd780c1-profile:
+	clang $(CFLAGS) test-upd780c1-profile.cpp -lstdc++
+	./a.out
+	clang $(CFLAGS) -DZ80_NO_EXCEPTION -fno-exceptions test-upd780c1-profile.cpp -lstdc++
+	./a.out
+	clang $(CFLAGS) -DZ80_NO_EXCEPTION -fno-exceptions -DZ80_NO_FUNCTIONAL -DZ80_DISABLE_DEBUG -DZ80_DISABLE_BREAKPOINT -DZ80_DISABLE_NESTCHECK -DZ80_CALLBACK_PER_INSTRUCTION test-upd780c1-profile.cpp -lstdc++
 	./a.out
 
 .PHONY: test-undefined

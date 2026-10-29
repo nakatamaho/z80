@@ -382,7 +382,15 @@ ReturnHandler will be called back immediately **before** a branch by a RET instr
 
 ### Flag profile (NEC uPD9002 Z80 emulation mode)
 
-By default the flags follow the Zilog Z80, including the undocumented bits 5 and 3 (`Z80::FlagProfile::Zilog`).
+By default the flags follow the existing `Z80::FlagProfile::Zilog` implementation. Its SCF/CCF currently copy undocumented bits 5 and 3 from A; it does not yet model the Zilog Q-history distinction.
+
+`Z80::FlagProfile::Upd780C1` explicitly selects the confirmed NEC NMOS uPD780C-1 SCF/CCF baseline: bits 5 and 3 come from A, S/Z/PV are retained, SCF clears H/N and sets C, and CCF clears N, copies old C to H and toggles C. It currently shares the non-Upd9002 implementation without changing either existing profile. It is a separate contract so a future Zilog Q implementation must preserve NEC A-only behavior. Other instructions retain the existing normal implementation; complete NEC variant/timing conformance is not claimed. The original-VA observations are not all explained by this profile.
+
+```cpp
+z80.setFlagProfile(Z80::FlagProfile::Upd780C1);
+```
+
+Published NEC/Zilog distinctions: [Undocumented Flags](https://github.com/hoglet67/Z80Decoder/wiki/Undocumented-Flags/49e542dd40c36ef7367cb5806292764416dc987a). Bounded physical comparisons and their limits: [VA2 baseline and CP/NOP/DD/FD observations](https://github.com/nakatamaho/vaeg/blob/cb050b2607064525748f01a1a356c0dd8ef49b08/docs/agents/reports/m140_fdc_va_observations.md#returned-fdcpref-controls). Software exhaustive regression coverage must not be confused with exhaustive physical coverage. DD/FD cases use the documented `Z80_NO_EXCEPTION` compatibility decoder; strict-build unknown-opcode exceptions are unchanged.
 
 The NEC uPD9002 used in the PC-88VA has a Z80 emulation mode whose flags differ.
 `Z80::FlagProfile::Upd9002` is a compatibility profile based on

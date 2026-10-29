@@ -122,9 +122,14 @@ class Z80
     // Upd9002: NEC uPD9002 Z80 emulation mode (PC-88VA V1/V2 mode). Rules
     // R1-R13 were measured on a real PC-88VA2 (ZEXDOC/ZEXALL, direct flag
     // probes and exhaustive DAA/CPL/SCF/CCF and DDCB/FDCB probes).
+    // Upd780C1: explicit NEC NMOS uPD780C-1 baseline. SCF/CCF copy X/Y
+    // from A; this currently shares the non-Upd9002 implementation. Keeping
+    // a separate selection protects this contract from future Zilog Q work.
+    // This is not a claim of complete NEC variant or timing conformance.
     enum class FlagProfile {
         Zilog,
-        Upd9002
+        Upd9002,
+        Upd780C1
     };
     void setFlagProfile(FlagProfile profile)
     {
